@@ -46,6 +46,10 @@ var clock = new THREE.Clock();
 
 // custom global variables
 var mesh;
+var lineBox;
+var lightMovements;
+var something, something2;
+
 
 init();
 animate();
@@ -60,7 +64,7 @@ function init()
 	var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
 	camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR);
 	scene.add(camera);
-	camera.position.set(0,150,400);
+	camera.position.set(0,150,600);
 	camera.lookAt(scene.position);	
 	// RENDERER
 	if ( Detector.webgl )
@@ -82,35 +86,59 @@ function init()
 	stats.domElement.style.zIndex = 100;
 	container.appendChild( stats.domElement );
 	// LIGHT
-	var light = new THREE.PointLight(0xffffff);
-	light.position.set(100,250,100);
+	var light = new THREE.PointLight(0xffffff)	;
+	light.position.set(0,0,0);
 	scene.add(light);
 	// FLOOR
 	var floorTexture = new THREE.ImageUtils.loadTexture( 'images/checkerboard.jpg' );
 	floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
-	floorTexture.repeat.set( 10, 10 );
+	floorTexture.repeat.set( 120, 120 );
 	var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
-	var floorGeometry = new THREE.PlaneGeometry(1000, 1000, 10, 10);
+	var floorGeometry = new THREE.PlaneGeometry(10000, 10000, 10, 10);
 	var floor = new THREE.Mesh(floorGeometry, floorMaterial);
 	floor.position.y = -0.5;
 	floor.rotation.x = Math.PI / 2;
 	scene.add(floor);
 	// SKYBOX
 	var skyBoxGeometry = new THREE.CubeGeometry( 10000, 10000, 10000 );
-	var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x9999ff, side: THREE.BackSide } );
+	var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x099078, side: THREE.BackSide } );
 	var skyBox = new THREE.Mesh( skyBoxGeometry, skyBoxMaterial );
 	scene.add(skyBox);
 	
 	////////////
 	// CUSTOM //
 	////////////
-	
-	var geometry = new THREE.SphereGeometry( 30, 32, 16 );
-	var material = new THREE.MeshLambertMaterial( { color: 0x000088 } );
-	mesh = new THREE.Mesh( geometry, material );
-	mesh.position.set(0,40,0);
+
+	var something = new THREE.CubeGeometry( 50, 50, 50);
+	var material = new THREE.MeshLambertMaterial( { color: 0xffffff } );
+	mesh = new THREE.Mesh( something, material );
+	mesh.position.set(0,150,0);
 	scene.add(mesh);
+
+	const geometry = new THREE.TorusGeometry( 100, 10, 50, 8 );
+	const material2 = new THREE.MeshBasicMaterial( { color: 0xffff00, side: THREE.DoubleSide } );
+
+	// Atribuir diretamente à variável global (sem o "var" na frente)
+	lineBox = new THREE.Mesh( geometry, material2 );
+	lineBox.position.set(0,150,0); 
+	scene.add( lineBox );
+
+	// CRIAR A LUZ DINÂMICA (COR AZULADA OU BRANCA FORTE PARA CONTRASTAR)
+	lightMovements = new THREE.PointLight(0x00aaff, 2, 300); 
+	// Afastamos a luz do centro (colocando na borda do aro de raio 100)
+	lightMovements.position.set(100, 0, 0); 
 	
+	// ADICIONAR A LUZ DENTRO DO ARO
+	lineBox.add( lightMovements );	
+
+
+
+	const a = new THREE.Vector3( 0, 1, 0 );
+	//no arguments; will be initialised to (0, 0, 0)
+	const b = new THREE.Vector3( );
+	const d = a.distanceTo( b );
+
+
 }
 
 function animate() 
@@ -122,14 +150,63 @@ function animate()
 
 function update()
 {
-	if ( keyboard.pressed("z") ) 
+	keyboard.update();
+	// Define a velocidade do movimento
+	var moveDistance = 5; 
+	var rotateAngle = 0.03; 
+
+	// Mover para a esquerda (Seta Esquerda)
+	if ( keyboard.pressed("left") || keyboard.pressed("A") ) 
 	{	  
-		// do something
+		lineBox.position.x -= moveDistance;
+	}
+	
+	// Mover para a direita (Seta Direita)
+	if ( keyboard.pressed("right") || keyboard.pressed("D")  ) 
+	{	  
+		lineBox.position.x += moveDistance;
+	}
+	
+	// Mover para frente/afastar (Seta para Cima)
+	if ( keyboard.pressed("up") || keyboard.pressed("W")  ) 
+	{	  
+		lineBox.position.z -= moveDistance;
+	}
+	
+	// Mover para trás/aproximar (Seta para Baixo)
+	if ( keyboard.pressed("down") || keyboard.pressed("S")  ) 
+	{	  
+		lineBox.position.z += moveDistance;
+	}
+
+	// Tecla 8: Inclina para baixo (Gira no eixo X)
+	if ( keyboard.pressed("R") ) 
+	{	  
+		lineBox.rotation.x += rotateAngle;
+	}
+	
+	// Tecla 2: Inclina para cima (Gira no eixo X)
+	if ( keyboard.pressed("F") ) 
+	{	  
+		lineBox.rotation.x -= rotateAngle;
+	}
+	
+	// Tecla 4: Inclina/Rola para a esquerda (Gira no eixo Z)
+	if ( keyboard.pressed("Q") ) 
+	{	  
+		lineBox.rotation.z += rotateAngle;
+	}
+	
+	// Tecla 6: Inclina/Rola para a direita (Gira no eixo Z)
+	if ( keyboard.pressed("E") ) 
+	{	  
+		lineBox.rotation.z -= rotateAngle;
 	}
 	
 	controls.update();
 	stats.update();
 }
+
 
 function render() 
 {
