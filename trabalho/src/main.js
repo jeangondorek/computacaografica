@@ -43,7 +43,9 @@ class Game {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = 0.92;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.container.appendChild(this.renderer.domElement);
   }
 
@@ -77,7 +79,7 @@ class Game {
     this.celestialSystem = new CelestialSystem(this.scene, this.textureGenerator);
 
     // 6. Cinturões de Asteroides com Colisão
-    this.asteroidField = new AsteroidField(this.scene, this.textureGenerator);
+    this.asteroidField = new AsteroidField(this.scene, this.textureGenerator, this.celestialSystem);
 
     // 7. Amostras Científicas de Cristais (4 por planeta)
     this.collectibleManager = new CollectibleManager(

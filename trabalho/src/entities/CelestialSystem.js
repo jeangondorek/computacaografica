@@ -5,6 +5,7 @@
 // - Transparência, camadas atmosféricas e sistemas de anéis planetários
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CONFIG } from '../config.js';
 
 export class CelestialSystem {
@@ -45,48 +46,35 @@ export class CelestialSystem {
 
     if (config.type === 'red' || config.type === 'lava') {
       // 1. Planeta Vermelho: MeshStandardMaterial com crosta vulcânica HD e magma emissivo
-      const redTex = loader.load('./assets/planets/planet_vermelho.png');
+      const redTex = loader.load('./itens/MeinPlanet_composite.png');
       redTex.colorSpace = THREE.SRGBColorSpace;
-      const emissiveTex = loader.load('./assets/planets/planet_vermelho_emissive.png');
+      redTex.wrapS = THREE.RepeatWrapping;
+      redTex.wrapT = THREE.ClampToEdgeWrapping;
+      redTex.anisotropy = this.scene.userData.maxAnisotropy || 4;
 
       material = new THREE.MeshStandardMaterial({
         map: redTex,
-        emissiveMap: emissiveTex,
         emissive: new THREE.Color(0xff3300),
-        emissiveIntensity: 1.0,
+        emissiveIntensity: 0.35,
         roughness: 0.85,
         metalness: 0.15
       });
     } else if (config.type === 'water' || config.type === 'forest') {
-      // 2. Planeta de Água: mapa equiretangular próprio para esfera.
-      // water_planet.png é um ícone quadrado com fundo preto e não pode ser
-      // aplicado diretamente como textura de uma esfera 3D.
+      // A superfície final é carregada do modelo earth-2.glb.
       const waterTex = loader.load('./assets/planets/planet_agua.png');
       waterTex.colorSpace = THREE.SRGBColorSpace;
-
-      material = new THREE.MeshPhysicalMaterial({
-        map: waterTex,
-        emissive: new THREE.Color(0x061b2e),
-        emissiveIntensity: 0.16,
-        roughness: 0.08,
-        metalness: 0.04,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.05,
-        reflectivity: 0.98,
-        transmission: 0.15
-      });
+      waterTex.wrapS = THREE.RepeatWrapping;
+      waterTex.wrapT = THREE.ClampToEdgeWrapping;
+      waterTex.anisotropy = this.scene.userData.maxAnisotropy || 4;
+      material = new THREE.MeshStandardMaterial({ map: waterTex, color: 0xffffff, roughness: 0.75 });
     } else {
-      // 3. Planeta com Anel de Asteroides (O Mais Difícil): MeshStandardMaterial rochoso estratificado
-      const ringPlanetTex = loader.load('./assets/planets/planet_anel.png');
-      ringPlanetTex.colorSpace = THREE.SRGBColorSpace;
-
-      material = new THREE.MeshStandardMaterial({
-        map: ringPlanetTex,
-        emissive: new THREE.Color(0x241006),
-        emissiveIntensity: 0.18,
-        roughness: 0.90,
-        metalness: 0.12
-      });
+      // A superfície final é carregada do modelo planet_with_asteroid_belt.glb.
+      const beltTex = loader.load('./assets/planets/planet_belt.jpg');
+      beltTex.colorSpace = THREE.SRGBColorSpace;
+      beltTex.wrapS = THREE.RepeatWrapping;
+      beltTex.wrapT = THREE.ClampToEdgeWrapping;
+      beltTex.anisotropy = this.scene.userData.maxAnisotropy || 4;
+      material = new THREE.MeshStandardMaterial({ map: beltTex, color: 0xffffff, roughness: 0.82 });
     }
 
     const geometry = new THREE.SphereGeometry(config.radius, 64, 64);
@@ -97,6 +85,7 @@ export class CelestialSystem {
 
     // Camada de Nuvens para o planeta de Água (Oceanus)
     let cloudsMesh = null;
+    let atmosphereMesh = null;
     if (config.hasClouds) {
       const cloudsTex = this.textureGenerator.createCloudsTexture();
       const cloudsGeo = new THREE.SphereGeometry(config.radius * 1.018, 48, 48);
@@ -123,61 +112,20 @@ export class CelestialSystem {
       });
       const atmoMesh = new THREE.Mesh(atmoGeo, atmoMat);
       planetGroup.add(atmoMesh);
+      atmosphereMesh = atmoMesh;
     }
 
     // Sistema de Anéis de Gelo para Cryo ou Anel Denso de Asteroides
     let ringsMesh = null;
     let ringAsteroidGroup = null;
     let localAsteroids = [];
+    let importedModel = null;
 
     if (config.hasDenseAsteroidRing) {
-      // Planeta com Anel de Asteroides (O Mais Difícil): Cinturão 3D perigoso
-      ringAsteroidGroup = new THREE.Group();
-      ringAsteroidGroup.rotation.x = Math.PI / 4;
-      planetGroup.add(ringAsteroidGroup);
-
-      const ringTex = this.textureGenerator.createRingsTexture();
-      const ringGeo = new THREE.RingGeometry(config.ringInnerRadius, config.ringOuterRadius, 64);
-      ringGeo.rotateX(Math.PI / 2);
-      const ringMat = new THREE.MeshBasicMaterial({
-        map: ringTex,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.75
-      });
-      ringsMesh = new THREE.Mesh(ringGeo, ringMat);
-      ringAsteroidGroup.add(ringsMesh);
-
-      // Centenas de rochas de asteroides no anel planetário
-      const astTex = this.textureGenerator.createAsteroidTexture();
-      const astMat = new THREE.MeshStandardMaterial({
-        map: astTex,
-        roughness: 0.9,
-        color: 0x887766
-      });
-      const astGeo = new THREE.IcosahedronGeometry(1, 1);
-
-      const count = config.ringAsteroidCount || 140;
-      for (let i = 0; i < count; i++) {
-        const dist = config.ringInnerRadius + Math.random() * (config.ringOuterRadius - config.ringInnerRadius);
-        const theta = Math.random() * Math.PI * 2;
-        const yOffset = (Math.random() - 0.5) * 45;
-        const scale = 8 + Math.random() * 22;
-
-        const astMesh = new THREE.Mesh(astGeo, astMat);
-        astMesh.position.set(Math.cos(theta) * dist, yOffset, Math.sin(theta) * dist);
-        astMesh.scale.setScalar(scale);
-        astMesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-        ringAsteroidGroup.add(astMesh);
-
-        localAsteroids.push({
-          mesh: astMesh,
-          radius: scale * 0.95,
-          dist,
-          theta,
-          speed: 0.001 + Math.random() * 0.001
-        });
-      }
+      // O cinturão deste planeta vem exclusivamente do
+      // planet_with_asteroid_belt.glb convertido do arquivo fornecido.
+      ringAsteroidGroup = null;
+      ringsMesh = null;
     } else if (config.hasRings) {
       const ringsTex = this.textureGenerator.createRingsTexture();
       const ringGeo = new THREE.RingGeometry(config.ringInnerRadius, config.ringOuterRadius, 64);
@@ -190,6 +138,156 @@ export class CelestialSystem {
       });
       ringsMesh = new THREE.Mesh(ringGeo, ringMat);
       planetGroup.add(ringsMesh);
+    }
+
+    // Usa o planeta/cinturão trazido pelo usuário e convertido do .blend.
+    if (config.type === 'red') {
+      const planetLoader = new GLTFLoader();
+      planetMesh.visible = false;
+      planetLoader.load('./itens/planet-textured.glb', (gltf) => {
+        const importedPlanet = gltf.scene;
+        importedModel = importedPlanet;
+        planetGroup.userData.importedModel = importedPlanet;
+        const redTexture = loader.load('./itens/MeinPlanet_composite.png');
+        redTexture.colorSpace = THREE.SRGBColorSpace;
+        redTexture.wrapS = THREE.RepeatWrapping;
+        redTexture.wrapT = THREE.ClampToEdgeWrapping;
+        redTexture.anisotropy = this.scene.userData.maxAnisotropy || 8;
+
+        importedPlanet.traverse(node => {
+          if (!node.isMesh) return;
+          node.material = new THREE.MeshStandardMaterial({
+            map: redTexture,
+            color: 0xffffff,
+            emissive: new THREE.Color(0xff3300),
+            emissiveIntensity: 0.18,
+            roughness: 0.82,
+            metalness: 0.08
+          });
+          node.castShadow = true;
+          node.receiveShadow = true;
+        });
+        importedPlanet.scale.setScalar(config.radius);
+        planetGroup.add(importedPlanet);
+      }, undefined, () => {
+        planetMesh.visible = true;
+        console.warn('planet-textured.glb não carregou; mantendo o fallback vermelho.');
+      });
+    }
+
+    if (config.type === 'ring_asteroids') {
+      const importedLoader = new GLTFLoader();
+      planetMesh.visible = false;
+      importedLoader.load('./itens/planet-belt-textured.glb', (gltf) => {
+        const importedPlanet = gltf.scene;
+        importedModel = importedPlanet;
+        planetGroup.userData.importedModel = importedPlanet;
+        const deepBlueCube = new THREE.CubeTextureLoader().load([
+          './itens/deepblue-gas-giant-cubemap/small_deepblue-gasgiant-0.png',
+          './itens/deepblue-gas-giant-cubemap/small_deepblue-gasgiant-1.png',
+          './itens/deepblue-gas-giant-cubemap/small_deepblue-gasgiant-2.png',
+          './itens/deepblue-gas-giant-cubemap/small_deepblue-gasgiant-3.png',
+          './itens/deepblue-gas-giant-cubemap/small_deepblue-gasgiant-4.png',
+          './itens/deepblue-gas-giant-cubemap/small_deepblue-gasgiant-5.png'
+        ]);
+        deepBlueCube.colorSpace = THREE.SRGBColorSpace;
+
+        importedPlanet.traverse(node => {
+          if (node.name === 'real_star_field.png') node.visible = false;
+          if (node.name === 'Cube' || node.name === 'Cube.001' || node.name === 'emitter') node.visible = false;
+          if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+          }
+          if (node.name === 'Sphere') {
+            node.scale.setScalar(config.radius);
+            node.traverse(child => {
+              if (child.isMesh) {
+                if (!child.geometry.attributes.uv) {
+                  const position = child.geometry.attributes.position;
+                  const uv = new Float32Array(position.count * 2);
+                  for (let i = 0; i < position.count; i++) {
+                    const x = position.getX(i);
+                    const y = position.getY(i);
+                    const z = position.getZ(i);
+                    const length = Math.sqrt(x * x + y * y + z * z) || 1;
+                    uv[i * 2] = 0.5 + Math.atan2(z / length, x / length) / (Math.PI * 2);
+                    uv[i * 2 + 1] = 0.5 - Math.asin(y / length) / Math.PI;
+                  }
+                  child.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+                }
+                child.material = new THREE.MeshStandardMaterial({
+                  envMap: deepBlueCube,
+                  envMapIntensity: 1.35,
+                  color: 0x4aa3ff,
+                  roughness: 0.28,
+                  metalness: 0.12
+                });
+              }
+            });
+          }
+        });
+        if (ringAsteroidGroup) ringAsteroidGroup.visible = false;
+        planetGroup.add(importedPlanet);
+      }, undefined, () => {
+        planetMesh.visible = true;
+        console.warn('planet_with_asteroid_belt.glb não carregou; mantendo o fallback do planeta.');
+      });
+    }
+
+    // Planeta Terra importado do arquivo earth 2.blend.
+    if (config.id === 'agua') {
+      const earthLoader = new GLTFLoader();
+      planetMesh.visible = false;
+      if (cloudsMesh) cloudsMesh.visible = false;
+      if (atmosphereMesh) atmosphereMesh.visible = false;
+      earthLoader.load('./itens/earth-59-textured.glb', (gltf) => {
+        const importedEarth = gltf.scene;
+        importedModel = importedEarth;
+        planetGroup.userData.importedModel = importedEarth;
+        const earthTex = loader.load('./assets/planets/planet_agua.png');
+        earthTex.colorSpace = THREE.SRGBColorSpace;
+        earthTex.wrapS = THREE.RepeatWrapping;
+        earthTex.wrapT = THREE.ClampToEdgeWrapping;
+        earthTex.anisotropy = this.scene.userData.maxAnisotropy || 4;
+
+        importedEarth.traverse(node => {
+          if (!node.isMesh) return;
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.name === 'earth') {
+            node.material = new THREE.MeshStandardMaterial({
+              map: earthTex,
+              color: 0xffffff,
+              roughness: 0.72,
+              metalness: 0.05
+            });
+          } else if (node.name === 'clouds') {
+            node.material = new THREE.MeshStandardMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: 0.42,
+              depthWrite: false,
+              roughness: 0.9
+            });
+          } else if (node.name === 'atmo') {
+            node.material = new THREE.MeshBasicMaterial({
+              color: 0x38bdf8,
+              transparent: true,
+              opacity: 0.12,
+              side: THREE.BackSide,
+              blending: THREE.AdditiveBlending
+            });
+          }
+        });
+        importedEarth.scale.setScalar(config.radius / 10);
+        planetGroup.add(importedEarth);
+      }, undefined, () => {
+        planetMesh.visible = true;
+        if (cloudsMesh) cloudsMesh.visible = true;
+        if (atmosphereMesh) atmosphereMesh.visible = true;
+        console.warn('earth-2.glb não carregou; mantendo o planeta de água original.');
+      });
     }
 
     // Checkpoints foram removidos: não há anel de renascimento nos planetas.
@@ -223,6 +321,8 @@ export class CelestialSystem {
           metalness: 0.05
         });
         const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+        moonMesh.castShadow = true;
+        moonMesh.receiveShadow = true;
         moonMesh.position.set(mConfig.distance, 0, 0);
         moonOrbitGroup.add(moonMesh);
 
@@ -249,6 +349,7 @@ export class CelestialSystem {
       orbitGroup,
       planetGroup,
       mesh: planetMesh,
+      importedModel,
       cloudsMesh,
       checkpointRing,
       checkpointRingMat,
@@ -290,6 +391,9 @@ export class CelestialSystem {
 
       // Rotação axial do planeta
       p.mesh.rotation.y += p.config.rotationSpeed;
+      if (p.planetGroup.userData.importedModel) {
+        p.planetGroup.userData.importedModel.rotation.y += p.config.rotationSpeed;
+      }
 
       // Movimento independente das nuvens (ventos atmosféricos)
       if (p.cloudsMesh) {

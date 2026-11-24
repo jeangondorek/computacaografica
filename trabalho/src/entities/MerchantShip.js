@@ -52,6 +52,12 @@ export class MerchantShip {
     ring.rotation.y = Math.PI / 2;
     this.group.add(ring);
     this.ring = ring;
+
+    this.group.traverse(node => {
+      if (!node.isMesh) return;
+      node.castShadow = true;
+      node.receiveShadow = true;
+    });
   }
 
   getWorldPosition() {

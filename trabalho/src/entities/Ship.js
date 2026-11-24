@@ -2,6 +2,7 @@
 // Construída proceduralmente combinando primitivas geométricas (fuselagem, asas delta, cockpit de vidro, propulsores iônicos e escudo de energia)
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CONFIG } from '../config.js';
 
 export class Ship {
@@ -20,6 +21,7 @@ export class Ship {
   }
 
   initModel() {
+    this.proceduralModel = new THREE.Group();
     const loader = new THREE.TextureLoader();
     let hullTex = this.textureGenerator.createHullTexture();
     try {
@@ -61,14 +63,14 @@ export class Ship {
     bodyGeo.rotateX(Math.PI / 2); // Aponta para frente (eixo -Z ou +Z)
     const bodyMesh = new THREE.Mesh(bodyGeo, hullMaterial);
     bodyMesh.scale.set(1.1, 0.55, 1.0);
-    this.mesh.add(bodyMesh);
+    this.proceduralModel.add(bodyMesh);
 
     // 2. Cockpit / Dossel de Vidro Translúcido
     const cockpitGeo = new THREE.SphereGeometry(0.48, 16, 16);
     cockpitGeo.scale(0.7, 0.45, 1.6);
     const cockpitMesh = new THREE.Mesh(cockpitGeo, cockpitMaterial);
     cockpitMesh.position.set(0, 0.38, 0.3);
-    this.mesh.add(cockpitMesh);
+    this.proceduralModel.add(cockpitMesh);
 
     // 3. Asas Delta (Esquerda e Direita)
     const wingShape = new THREE.Shape();
@@ -85,37 +87,37 @@ export class Ship {
     // Asa Direita
     const rightWing = new THREE.Mesh(wingGeo, hullMaterial);
     rightWing.position.set(0.3, 0.05, 0.4);
-    this.mesh.add(rightWing);
+    this.proceduralModel.add(rightWing);
 
     // Asa Esquerda (Espelhada)
     const leftWingGeo = wingGeo.clone();
     leftWingGeo.scale(-1, 1, 1);
     const leftWing = new THREE.Mesh(leftWingGeo, hullMaterial);
     leftWing.position.set(-0.3, 0.05, 0.4);
-    this.mesh.add(leftWing);
+    this.proceduralModel.add(leftWing);
 
     // Pontas das asas / Wingtips verticais
     const tipGeo = new THREE.BoxGeometry(0.08, 0.65, 0.8);
     const rightTip = new THREE.Mesh(tipGeo, accentMaterial);
     rightTip.position.set(2.4, 0.3, -0.8);
-    this.mesh.add(rightTip);
+    this.proceduralModel.add(rightTip);
 
     const leftTip = new THREE.Mesh(tipGeo, accentMaterial);
     leftTip.position.set(-2.4, 0.3, -0.8);
-    this.mesh.add(leftTip);
+    this.proceduralModel.add(leftTip);
 
     // 4. Estabilizadores Verticais Traseiros (Lemes duplos)
     const finGeo = new THREE.BoxGeometry(0.08, 0.8, 1.1);
     finGeo.rotateZ(0.2);
     const rightFin = new THREE.Mesh(finGeo, accentMaterial);
     rightFin.position.set(0.55, 0.5, -1.2);
-    this.mesh.add(rightFin);
+    this.proceduralModel.add(rightFin);
 
     const leftFinGeo = finGeo.clone();
     leftFinGeo.rotateZ(-0.4);
     const leftFin = new THREE.Mesh(leftFinGeo, accentMaterial);
     leftFin.position.set(-0.55, 0.5, -1.2);
-    this.mesh.add(leftFin);
+    this.proceduralModel.add(leftFin);
 
     // 5. Motores Iônicos Traseiros Duplos
     const engineGeo = new THREE.CylinderGeometry(0.28, 0.32, 0.9, 16);
@@ -123,11 +125,11 @@ export class Ship {
 
     const rightEngine = new THREE.Mesh(engineGeo, darkMaterial);
     rightEngine.position.set(0.48, 0.05, -1.75);
-    this.mesh.add(rightEngine);
+    this.proceduralModel.add(rightEngine);
 
     const leftEngine = new THREE.Mesh(engineGeo, darkMaterial);
     leftEngine.position.set(-0.48, 0.05, -1.75);
-    this.mesh.add(leftEngine);
+    this.proceduralModel.add(leftEngine);
 
     // Chamas de propulsão dos motores (Sprites de plasma ciano/laranja)
     const flameTex = this.textureGenerator.createGlowSprite('#00ffff', 128);
@@ -142,12 +144,12 @@ export class Ship {
     this.flameRight = new THREE.Sprite(flameMat);
     this.flameRight.scale.set(0.9, 0.9, 1);
     this.flameRight.position.set(0.48, 0.05, -2.4);
-    this.mesh.add(this.flameRight);
+    this.proceduralModel.add(this.flameRight);
 
     this.flameLeft = new THREE.Sprite(flameMat.clone());
     this.flameLeft.scale.set(0.9, 0.9, 1);
     this.flameLeft.position.set(-0.48, 0.05, -2.4);
-    this.mesh.add(this.flameLeft);
+    this.proceduralModel.add(this.flameLeft);
 
     // 6. Cúpula de Escudo de Força (visível ao sofrer dano por impacto)
     const shieldGeo = new THREE.SphereGeometry(2.7, 24, 24);
@@ -159,7 +161,9 @@ export class Ship {
       blending: THREE.AdditiveBlending
     });
     this.shieldMesh = new THREE.Mesh(shieldGeo, this.shieldMaterial);
-    this.mesh.add(this.shieldMesh);
+    this.proceduralModel.add(this.shieldMesh);
+
+    this.mesh.add(this.proceduralModel);
 
     // Posiciona e escala a nave no mundo
     this.mesh.scale.setScalar(CONFIG.SHIP.scale);
@@ -169,6 +173,35 @@ export class Ship {
       CONFIG.START_POSITION.z
     );
     this.scene.add(this.mesh);
+    this.loadImportedModel();
+  }
+
+  loadImportedModel() {
+    const loader = new GLTFLoader();
+    loader.load(
+      './itens/Spaceship-HY-21.glb',
+      (gltf) => {
+        const importedModel = gltf.scene;
+        // O modelo exportado tem cerca de 10 unidades; esta escala o deixa
+        // proporcional à nave e ao raio de colisão atuais.
+        importedModel.scale.setScalar(0.45);
+        importedModel.traverse(node => {
+          if (!node.isMesh) return;
+          node.castShadow = true;
+          node.receiveShadow = true;
+        });
+        // O modelo já está orientado para a frente; não inverter a traseira.
+        importedModel.rotation.y = 0;
+        this.proceduralModel.visible = false;
+        this.mesh.add(importedModel);
+        this.importedModel = importedModel;
+      },
+      undefined,
+      () => {
+        // O fallback procedural continua funcionando se o .glb ainda não foi exportado.
+        console.warn('Modelo Spaceship-HY-21.glb não encontrado; usando nave procedural.');
+      }
+    );
   }
 
   // Aplica dano de colisão com asteroides

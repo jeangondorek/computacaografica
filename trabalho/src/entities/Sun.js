@@ -31,12 +31,20 @@ export class Sun {
       CONFIG.SUN.color,
       CONFIG.SUN.lightIntensity,
       CONFIG.SUN.lightDistance,
-      0.85
+      1.25
     );
+    this.light.castShadow = true;
+    this.light.shadow.mapSize.set(2048, 2048);
+    this.light.shadow.camera.near = 100;
+    this.light.shadow.camera.far = CONFIG.SUN.lightDistance;
+    this.light.shadow.bias = -0.00018;
+    this.light.shadow.normalBias = 1.5;
+    this.light.shadow.radius = 3;
     this.group.add(this.light);
 
-    // Luz ambiente suave para garantir visibilidade do lado escuro dos planetas
-    const ambientLight = new THREE.AmbientLight(0x222633, 0.45);
+    // O lado não iluminado fica escuro; o ambiente apenas revela contornos
+    // mínimos e não substitui a iluminação direcional do Sol.
+    const ambientLight = new THREE.AmbientLight(0x111827, 0.055);
     this.scene.add(ambientLight);
 
     // Coroa solar / Brilho atmosférico (Sprite aditivo)

@@ -458,7 +458,9 @@ export class TextureGenerator {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const n = (this.noise.fbm(x / 30, y / 30, 4) + 1) * 0.5;
-        const color = Math.floor(65 + n * 75);
+        const cracks = Math.sin(x * 0.18 + this.noise.fbm(x / 25, y / 25, 3) * 7);
+        const crackAmount = cracks > 0.94 ? 28 : 0;
+        const color = Math.floor(55 + n * 68 - crackAmount);
         const idx = (y * size + x) * 4;
         data[idx] = color + 10;
         data[idx + 1] = color;

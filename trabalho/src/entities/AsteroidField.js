@@ -2,33 +2,46 @@
 // Cria obstáculos dinâmicos entre as órbitas planetárias que causam dano por impacto
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CONFIG } from '../config.js';
 
 export class AsteroidField {
-  constructor(scene, textureGenerator) {
+  constructor(scene, textureGenerator, celestialSystem) {
     this.scene = scene;
     this.textureGenerator = textureGenerator;
     this.asteroids = []; // Lista de objetos para física e colisão
     this.group = new THREE.Group();
+    this.importedAsteroidTemplates = [];
 
-    this.initBelts();
+    this.scene.add(this.group);
+    this.loadImportedAsteroids(celestialSystem);
   }
 
-  initBelts() {
-    const asteroidTex = this.textureGenerator.createAsteroidTexture();
-    const material = new THREE.MeshStandardMaterial({
-      map: asteroidTex,
-      roughness: 0.95,
-      metalness: 0.1,
-      color: 0x9e9e9e
+  loadImportedAsteroids(celestialSystem) {
+    const loader = new GLTFLoader();
+    loader.load('./itens/asteroid.glb', gltf => {
+      gltf.scene.traverse(node => {
+        if (!node.isMesh) return;
+        node.castShadow = true;
+        node.receiveShadow = true;
+        if (node.material) {
+          node.material.color.setHex(0xffffff);
+          node.material.roughness = 1;
+          node.material.metalness = 0;
+          if (node.material.map) {
+            node.material.map.colorSpace = THREE.SRGBColorSpace;
+            node.material.map.anisotropy = this.scene.userData.maxAnisotropy || 8;
+          }
+        }
+      });
+      this.importedAsteroidTemplates = [gltf.scene];
+      this.initBelts(celestialSystem);
+    }, undefined, () => {
+      console.warn('Modelo asteroid.glb não carregou.');
     });
+  }
 
-    // Gera geometrias base com deformação procedural nos vértices para criar rochas irregulares
-    const baseGeometries = [
-      this.createDeformedRockGeometry(1.0, 1),
-      this.createDeformedRockGeometry(1.0, 2)
-    ];
-
+  initBelts(celestialSystem) {
     CONFIG.ASTEROID_BELTS.forEach(belt => {
       for (let i = 0; i < belt.count; i++) {
         // Distribuição anular polar
@@ -40,16 +53,9 @@ export class AsteroidField {
         const z = Math.sin(theta) * radius;
 
         // Variação de tamanho da rocha
-        const scale = belt.minSize + Math.random() * (belt.maxSize - belt.minSize);
-        const geo = baseGeometries[i % baseGeometries.length];
-
-        const mesh = new THREE.Mesh(geo, material);
+        const size = belt.minSize + Math.random() * (belt.maxSize - belt.minSize);
+        const mesh = this.createAsteroidInstance(i, size);
         mesh.position.set(x, y, z);
-        mesh.scale.set(
-          scale * (0.8 + Math.random() * 0.4),
-          scale * (0.8 + Math.random() * 0.4),
-          scale * (0.8 + Math.random() * 0.4)
-        );
 
         // Rotação inicial aleatória
         mesh.rotation.set(
@@ -63,7 +69,7 @@ export class AsteroidField {
         // Registro para colisão
         this.asteroids.push({
           position: mesh.position,
-          radius: scale * 0.95, // Raio aproximado da esfera delimitadora
+          radius: size * 0.5,
           mesh,
           rotSpeedX: (Math.random() - 0.5) * 0.008,
           rotSpeedY: (Math.random() - 0.5) * 0.008,
@@ -73,26 +79,113 @@ export class AsteroidField {
       }
     });
 
+    // Cinturão do planeta Kronos: também usa somente os dois modelos GLB.
+    celestialSystem.planets.forEach(planet => {
+      if (!planet.config.hasDenseAsteroidRing) return;
+
+      const ringGroup = new THREE.Group();
+      ringGroup.rotation.x = Math.PI / 4;
+      planet.planetGroup.add(ringGroup);
+      planet.ringAsteroidGroup = ringGroup;
+      planet.localAsteroids = [];
+
+      const count = planet.config.ringAsteroidCount || 140;
+      for (let i = 0; i < count; i++) {
+        const dist = planet.config.ringInnerRadius +
+          Math.random() * (planet.config.ringOuterRadius - planet.config.ringInnerRadius);
+        const theta = Math.random() * Math.PI * 2;
+        const yOffset = (Math.random() - 0.5) * 45;
+        const size = 8 + Math.random() * 22;
+        const mesh = this.createAsteroidInstance(i, size);
+
+        mesh.position.set(Math.cos(theta) * dist, yOffset, Math.sin(theta) * dist);
+        mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        ringGroup.add(mesh);
+        planet.localAsteroids.push({
+          mesh,
+          radius: size * 0.5,
+          dist,
+          theta,
+          speed: 0.001 + Math.random() * 0.001
+        });
+      }
+    });
+
+    this.initRoamingAsteroids();
+
     this.scene.add(this.group);
   }
 
-  // Deforma uma icosaedro para gerar rochas autorais facetadas
-  createDeformedRockGeometry(size, detail) {
-    const geo = new THREE.IcosahedronGeometry(size, detail);
-    const pos = geo.attributes.position;
+  initRoamingAsteroids() {
+    const roaming = CONFIG.ROAMING_ASTEROIDS;
+    if (!roaming) return;
 
-    for (let i = 0; i < pos.count; i++) {
-      const vx = pos.getX(i);
-      const vy = pos.getY(i);
-      const vz = pos.getZ(i);
+    for (let i = 0; i < roaming.count; i++) {
+      let x;
+      let y;
+      let z;
 
-      // Perturbação procedural dos vértices
-      const noise = 0.82 + Math.sin(vx * 3 + vy * 4) * 0.18 + Math.cos(vz * 5) * 0.12;
-      pos.setXYZ(i, vx * noise, vy * noise, vz * noise);
+      do {
+        x = (Math.random() - 0.5) * roaming.mapRadius * 2;
+        y = (Math.random() - 0.5) * roaming.mapRadius * 0.55;
+        z = (Math.random() - 0.5) * roaming.mapRadius * 2;
+      } while (Math.sqrt(x * x + z * z) < 3000);
+
+      const size = roaming.minSize + Math.random() * (roaming.maxSize - roaming.minSize);
+      const mesh = this.createAsteroidInstance(i, size);
+      mesh.position.set(x, y, z);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      this.group.add(mesh);
+
+      const direction = new THREE.Vector3(
+        Math.random() - 0.5,
+        (Math.random() - 0.5) * 0.35,
+        Math.random() - 0.5
+      ).normalize();
+      const speed = roaming.minSpeed + Math.random() * (roaming.maxSpeed - roaming.minSpeed);
+
+      this.asteroids.push({
+        position: mesh.position,
+        radius: size * 0.5,
+        mesh,
+        velocity: direction.multiplyScalar(speed),
+        rotSpeedX: (Math.random() - 0.5) * 0.014,
+        rotSpeedY: (Math.random() - 0.5) * 0.014,
+        rotSpeedZ: (Math.random() - 0.5) * 0.014,
+        distFromSun: Math.sqrt(x * x + z * z),
+        roaming: true
+      });
     }
+  }
 
-    geo.computeVertexNormals();
-    return geo;
+  createAsteroidInstance(index, targetDiameter) {
+    const model = this.importedAsteroidTemplates[index % this.importedAsteroidTemplates.length].clone(true);
+    const asteroidColors = [0x8faaa6, 0xa68f78, 0x64758a, 0x91849b];
+    const tint = asteroidColors[index % asteroidColors.length];
+
+    model.traverse(node => {
+      if (!node.isMesh) return;
+      if (node.material) {
+        node.material = node.material.clone();
+        node.material.color.setHex(tint);
+        node.material.roughness = 0.82;
+        node.material.metalness = 0.06;
+      }
+    });
+
+    model.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    const maxDimension = Math.max(size.x, size.y, size.z);
+    if (maxDimension > 0) model.scale.multiplyScalar(targetDiameter / maxDimension);
+
+    const centeredBounds = new THREE.Box3().setFromObject(model);
+    const center = centeredBounds.getCenter(new THREE.Vector3());
+    model.position.sub(center);
+
+    const instance = new THREE.Group();
+    instance.add(model);
+    return instance;
   }
 
   // Detecção rápida de colisão com a nave usando particionamento radial e verificação do anel planetário
@@ -170,6 +263,23 @@ export class AsteroidField {
       ast.mesh.rotation.x += ast.rotSpeedX;
       ast.mesh.rotation.y += ast.rotSpeedY;
       ast.mesh.rotation.z += ast.rotSpeedZ;
+
+      if (ast.roaming && ast.velocity) {
+        ast.mesh.position.addScaledVector(ast.velocity, delta);
+        ast.distFromSun = Math.sqrt(
+          ast.mesh.position.x * ast.mesh.position.x +
+          ast.mesh.position.z * ast.mesh.position.z
+        );
+
+        const roaming = CONFIG.ROAMING_ASTEROIDS;
+        const limitX = roaming.mapRadius;
+        const limitZ = roaming.mapRadius;
+        const limitY = roaming.mapRadius * 0.275;
+
+        if (Math.abs(ast.mesh.position.x) > limitX) ast.velocity.x *= -1;
+        if (Math.abs(ast.mesh.position.y) > limitY) ast.velocity.y *= -1;
+        if (Math.abs(ast.mesh.position.z) > limitZ) ast.velocity.z *= -1;
+      }
     }
   }
 }

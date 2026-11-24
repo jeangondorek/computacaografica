@@ -96,7 +96,7 @@ export const CONFIG = {
       hasDenseAsteroidRing: true,
       ringInnerRadius: 2100,
       ringOuterRadius: 3600,
-      ringAsteroidCount: 180,
+      ringAsteroidCount: 520,
       moons: [
         {
           name: 'Titanis',
@@ -124,21 +124,29 @@ export const CONFIG = {
       name: 'Cinturão de Brasas',
       innerRadius: 11500,
       outerRadius: 14500,
-      count: 280,
-      heightSpread: 650,
-      minSize: 18,
-      maxSize: 65
+      count: 850,
+      heightSpread: 950,
+      minSize: 20,
+      maxSize: 72
     },
     {
       name: 'Cinturão Glacial Exterior',
       innerRadius: 23500,
       outerRadius: 28500,
-      count: 420,
-      heightSpread: 900,
-      minSize: 25,
-      maxSize: 90
+      count: 1150,
+      heightSpread: 1250,
+      minSize: 28,
+      maxSize: 100
     }
   ],
+  ROAMING_ASTEROIDS: {
+    count: 450,
+    minSize: 14,
+    maxSize: 52,
+    mapRadius: 42000,
+    minSpeed: 35,
+    maxSpeed: 95
+  },
 
   // Parâmetros da Nave Espacial
   SHIP: {
