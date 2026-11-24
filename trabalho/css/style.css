@@ -1,0 +1,479 @@
+/* Estilos do Jogo Explorador Estelar - Sci-Fi HUD */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #05070c;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  color: #e0f2fe;
+}
+
+#canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* =========================================
+   CAMADA HUD (HEADS-UP DISPLAY)
+   ========================================= */
+#hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+}
+
+/* Painéis de Vidro Futurista (Glassmorphism) */
+.hud-panel {
+  background: rgba(10, 18, 30, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-radius: 8px;
+  padding: 14px 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 229, 255, 0.08);
+  pointer-events: auto;
+}
+
+/* Linha Superior do HUD */
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* 1. Status da Nave (Canto Superior Esquerdo) */
+.ship-status-panel {
+  min-width: 280px;
+}
+
+.panel-title {
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #38bdf8;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.meter-group {
+  margin-bottom: 10px;
+}
+
+.meter-group:last-child {
+  margin-bottom: 0;
+}
+
+.meter-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.meter-bar {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.meter-fill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.15s ease-out;
+}
+
+#health-bar-fill {
+  background: linear-gradient(90deg, #00ff88, #00d4ff);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+#boost-bar-fill {
+  background: linear-gradient(90deg, #ff9900, #ffdd00);
+  box-shadow: 0 0 10px rgba(255, 153, 0, 0.5);
+}
+
+/* 2. Radar e Bússola 3D de Objetivos (Centro Superior) */
+.radar-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 240px;
+  text-align: center;
+}
+
+.radar-circle {
+  width: 58px;
+  height: 58px;
+  border: 2px solid rgba(0, 229, 255, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 0;
+  position: relative;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.15) 0%, transparent 70%);
+}
+
+.radar-arrow {
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 22px solid #00ffff;
+  filter: drop-shadow(0 0 6px #00ffff);
+  transition: transform 0.08s linear;
+}
+
+.target-info {
+  font-size: 13px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.target-dist {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* 3. Missão e Amostras por Planeta (Canto Superior Direito) */
+.mission-panel {
+  min-width: 270px;
+}
+
+.planet-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.planet-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.planet-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-lava { background: #ff4500; box-shadow: 0 0 6px #ff4500; }
+.dot-forest { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
+.dot-ice { background: #00d4ff; box-shadow: 0 0 6px #00d4ff; }
+
+.checkpoint-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #64748b;
+  letter-spacing: 1px;
+  margin-left: 6px;
+}
+
+.checkpoint-badge.active {
+  background: rgba(0, 255, 136, 0.25);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.5);
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+}
+
+.total-samples-count {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  color: #38bdf8;
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+
+/* Linha Inferior do HUD */
+.hud-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+}
+
+/* Velocímetro e Modos */
+.speed-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.speed-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.warp-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.15);
+  color: #38bdf8;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.warp-badge.active {
+  background: rgba(255, 119, 0, 0.35);
+  color: #ff9900;
+  border: 1px solid #ff7700;
+  box-shadow: 0 0 12px rgba(255, 119, 0, 0.6);
+  animation: pulse-warp 0.8s infinite alternate;
+}
+
+@keyframes pulse-warp {
+  from { opacity: 0.7; }
+  to { opacity: 1.0; }
+}
+
+/* Botões de Ajuda e Controles */
+.controls-hint-btn {
+  background: rgba(0, 229, 255, 0.15);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  color: #38bdf8;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.controls-hint-btn:hover {
+  background: rgba(0, 229, 255, 0.35);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+}
+
+/* =========================================
+   NOTIFICAÇÃO DE CHECKPOINT ATIVADO
+   ========================================= */
+#checkpoint-alert {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.95));
+  color: #fff;
+  padding: 16px 28px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.8);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 50;
+  border: 2px solid #a7f3d0;
+}
+
+#checkpoint-alert.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* =========================================
+   TELAS MODAIS (MORTE, VITÓRIA, CONTROLES)
+   ========================================= */
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(4, 7, 13, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.modal-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-box {
+  background: rgba(15, 23, 42, 0.95);
+  border: 2px solid rgba(0, 229, 255, 0.4);
+  border-radius: 12px;
+  padding: 32px 40px;
+  max-width: 520px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 229, 255, 0.2);
+}
+
+.modal-title {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  letter-spacing: 1.5px;
+}
+
+.title-danger { color: #ff3344; text-shadow: 0 0 15px rgba(255, 51, 68, 0.6); }
+.title-victory { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.8); }
+.title-info { color: #38bdf8; }
+
+.modal-desc {
+  font-size: 14px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  border: 1px solid #38bdf8;
+  padding: 12px 28px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.6);
+  transform: translateY(-2px);
+}
+
+/* Tabela de Teclas */
+.controls-table {
+  width: 100%;
+  margin: 16px 0 24px 0;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 13px;
+}
+
+.controls-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.key-badge {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #38bdf8;
+}
+
+/* Mercado da nave cargueira */
+.market-box {
+  max-width: 760px;
+}
+
+.market-credits {
+  color: #facc15;
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.market-stats {
+  color: #cbd5e1;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.market-offers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.market-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px;
+  text-align: left;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.market-offer strong {
+  color: #67e8f9;
+  font-size: 13px;
+}
+
+.market-action {
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.market-active {
+  color: #a7f3d0;
+  min-height: 22px;
+}
+
+.market-upgrades {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+@media (max-width: 700px) {
+  .market-offers {
+    grid-template-columns: 1fr;
+  }
+
+  .market-upgrades {
+    flex-direction: column;
+  }
+}

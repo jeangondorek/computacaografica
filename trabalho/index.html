@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explorador Estelar - Jogo Espacial em Three.js</title>
+  <link rel="stylesheet" href="./css/style.css">
+
+  <!-- Mapeamento de Módulos ES6 Three.js 100% Local e Offline -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./libs/three/three.module.js",
+      "three/addons/": "./libs/three/addons/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Contêiner do Canvas WebGL Three.js -->
+  <div id="canvas-container"></div>
+
+  <!-- Camada HUD Superior (Heads-Up Display) -->
+  <div id="hud-overlay">
+    <div class="hud-top">
+      
+      <!-- 1. Status da Nave e Blindagem -->
+      <div class="hud-panel ship-status-panel">
+        <div class="panel-title">Sistemas da Nave</div>
+        
+        <div class="meter-group">
+          <div class="meter-header">
+            <span>INTEGRIDADE DO CASCO</span>
+            <span id="health-text">30/30</span>
+          </div>
+          <div class="meter-bar">
+            <div id="health-bar-fill" class="meter-fill"></div>
+          </div>
+        </div>
+
+        <div class="meter-group">
+          <div class="meter-header">
+            <span>PROPULSÃO TURBO (BOOST)</span>
+            <span id="boost-text">100%</span>
+          </div>
+          <div class="meter-bar">
+            <div id="boost-bar-fill" class="meter-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Radar e Localizador do Alvo Mais Próximo -->
+      <div class="hud-panel radar-panel">
+        <div class="panel-title">Radar de Amostras</div>
+        <div class="radar-circle">
+          <div id="radar-arrow" class="radar-arrow"></div>
+        </div>
+        <div id="target-name" class="target-info">Rastreando Amostras...</div>
+        <div id="target-distance" class="target-dist">Calculando vetor...</div>
+      </div>
+
+      <!-- 3. Estoque de Amostras Científicas por Planeta -->
+      <div class="hud-panel mission-panel">
+        <div class="panel-title">Estoque de Amostras</div>
+
+        <div class="planet-stat-row">
+          <span class="planet-name"><span class="planet-dot dot-lava"></span> Planeta Vermelho</span>
+          <div>
+            <span id="stat-vermelho" style="font-weight: bold;">0/5</span>
+          </div>
+        </div>
+
+        <div class="planet-stat-row">
+          <span class="planet-name"><span class="planet-dot dot-forest"></span> Planeta de Água</span>
+          <div>
+            <span id="stat-agua" style="font-weight: bold;">0/5</span>
+          </div>
+        </div>
+
+        <div class="planet-stat-row">
+          <span class="planet-name"><span class="planet-dot dot-ice"></span> Planeta dos Asteroides (Difícil)</span>
+          <div>
+            <span id="stat-anel" style="font-weight: bold;">0/5</span>
+          </div>
+        </div>
+
+        <div class="total-samples-count">
+          <span>TOTAL COLETADO:</span>
+          <span id="total-crystals">0/1</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Linha Inferior do HUD -->
+    <div class="hud-bottom">
+      
+      <!-- Velocímetro -->
+      <div class="hud-panel speed-panel">
+        <div class="panel-title">Velocidade Atual</div>
+        <div id="speed-value" class="speed-value">0 u/s</div>
+        <div id="warp-badge" class="warp-badge">CRUZEIRO ESTELAR</div>
+      </div>
+
+      <!-- Guia de Comandos e Sincronização -->
+      <div style="display: flex; gap: 10px;">
+        <button id="sync-orbit-btn" class="controls-hint-btn" style="border-color: #38bdf8; background: rgba(14, 165, 233, 0.25);">🛰️ Sincronizar Órbita [O]</button>
+        <button id="controls-btn" class="controls-hint-btn">⌨️ Comandos de Voo [H]</button>
+        <button id="market-btn" class="controls-hint-btn">🚚 Mercado [M]</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Notificações de sistema -->
+  <div id="checkpoint-alert">
+    <span id="checkpoint-alert-text">NOTIFICAÇÃO DE SISTEMA</span>
+  </div>
+
+  <!-- Modal: Destruição da Nave (Game Over) -->
+  <div id="death-screen" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title title-danger">NAVE DESTRUÍDA</div>
+      <p class="modal-desc">
+        A integridade estrutural do casco chegou a zero após impactos severos com o campo de asteroides.
+        A tentativa será reiniciada desde o início, perdendo estoque, créditos e melhorias da nave.
+      </p>
+      <button id="respawn-btn" class="btn-primary">RECOMEÇAR A MISSÃO</button>
+    </div>
+  </div>
+
+  <!-- Modal: Vitória Científica -->
+  <div id="victory-screen" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title title-victory">MISSÃO CONCLUÍDA!</div>
+      <p class="modal-desc">
+        Parabéns, Comandante! Você navegou por todo o sistema solar, sobreviveu aos campos de asteroides e coletou todas as 12 amostras científicas dos planetas Ignis, Gaea e Cryo!
+      </p>
+      <button onclick="location.reload()" class="btn-primary">EXPLORAR NOVAMENTE</button>
+    </div>
+  </div>
+
+  <div id="market-screen" class="modal-overlay">
+    <div class="modal-box market-box">
+      <div class="modal-title title-info">NAVE CARGUEIRA — MERCADO</div>
+      <div id="market-credits" class="market-credits">0 créditos</div>
+      <div id="market-stats" class="market-stats">Vida: 30/30 · Velocidade: 80 · Turbo: 200 · Motor: 0/8 · Tanque: 40 · Estoque: 0/1 · Casco: 0/9</div>
+      <p class="modal-desc">Aceite contratos, venda as amostras coletadas e melhore sua nave.</p>
+      <div id="market-active" class="market-active">Nenhum contrato ativo.</div>
+      <div id="market-offers" class="market-offers"></div>
+      <div class="market-upgrades">
+        <button id="upgrade-fuel" class="btn-primary">Tanque maior — 250</button>
+        <button id="upgrade-engine" class="btn-primary">Motor: +9 normal / +100 turbo — 350</button>
+        <button id="upgrade-hull" class="btn-primary">Casco +20 vida — 300</button>
+        <button id="upgrade-inventory" class="btn-primary">Estoque +1 — 250</button>
+        <button id="repair-ship" class="btn-primary">Conserto +10 vida — 100</button>
+      </div>
+      <button id="close-market-btn" class="btn-primary">Voltar ao voo</button>
+    </div>
+  </div>
+
+  <!-- Modal: Guia de Teclas e Controles -->
+  <div id="controls-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title title-info">COMANDOS DE PILOTAGEM</div>
+      <table class="controls-table">
+        <tr>
+          <td><span class="key-badge">W</span> / <span class="key-badge">S</span></td>
+          <td>Arfagem (Pitch): Inclinar bico para baixo / cima</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">A</span> / <span class="key-badge">D</span></td>
+          <td>Guinada (Yaw): Girar leme para esquerda / direita</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">Q</span> / <span class="key-badge">E</span></td>
+          <td>Rolagem (Roll): Inclinação lateral das asas</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">ESPAÇO</span></td>
+          <td>Acelerar / Propulsor frontal</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">SHIFT</span></td>
+          <td>Propulsão Turbo (Warp Boost para longas distâncias)</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">X</span> / <span class="key-badge">B</span></td>
+          <td>Freio inercial / Ré</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">O</span></td>
+          <td>Sincronizar Órbita: Trava velocidade e acompanha o planeta próximo</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">G</span> (segurar)</td>
+          <td>Coletar uma amostra quando estiver próximo</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">9</span></td>
+          <td>Atalho de teste: preencher o estoque com 5 amostras de cada planeta</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">5</span></td>
+          <td>Atalho de teste: adicionar 1000 créditos</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">0</span></td>
+          <td>Atalho de teste: zerar as amostras coletadas</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">8</span></td>
+          <td>Ativar / desativar turbo infinito</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">M</span></td>
+          <td>Abrir o mercado quando estiver perto da nave cargueira</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">C</span></td>
+          <td>Alternar Câmera (3ª Pessoa / Afastada / Cockpit)</td>
+        </tr>
+        <tr>
+          <td><span class="key-badge">H</span></td>
+          <td>Exibir / Ocultar este guia</td>
+        </tr>
+      </table>
+      <button id="close-controls-btn" class="btn-primary">ENTENDIDO, VOLTAR AO VOO</button>
+    </div>
+  </div>
+
+  <!-- Script Principal do Jogo -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
